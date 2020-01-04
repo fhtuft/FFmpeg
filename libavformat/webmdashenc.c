@@ -288,33 +288,55 @@ static int parse_filename(char *filename, char **representation_id,
     char *period_pos = NULL;
     char *temp_pos = NULL;
     char *filename_str = av_strdup(filename);
-    if (!filename_str) return AVERROR(ENOMEM);
+    int ret = 0;
+
+    if (!filename_str) {
+        ret = AVERROR(ENOMEM);
+        goto end;
+    }
     temp_pos = av_stristr(filename_str, "_");
     while (temp_pos) {
         underscore_pos = temp_pos + 1;
         temp_pos = av_stristr(temp_pos + 1, "_");
     }
-    if (!underscore_pos) return AVERROR_INVALIDDATA;
+    if (!underscore_pos) {
+        ret = AVERROR_INVALIDDATA;
+        goto end;
+    }
     period_pos = av_stristr(underscore_pos, ".");
-    if (!period_pos) return AVERROR_INVALIDDATA;
+    if (!period_pos) {
+        ret = AVERROR_INVALIDDATA;
+        goto end;
+    }
     *(underscore_pos - 1) = 0;
     if (representation_id) {
         *representation_id = av_malloc(period_pos - underscore_pos + 1);
-        if (!(*representation_id)) return AVERROR(ENOMEM);
+        if (!(*representation_id)) {
+            ret = AVERROR(ENOMEM);
+            goto end;
+        }
         av_strlcpy(*representation_id, underscore_pos, period_pos - underscore_pos + 1);
     }
     if (initialization_pattern) {
         *initialization_pattern = av_asprintf("%s_$RepresentationID$.hdr",
                                               filename_str);
-        if (!(*initialization_pattern)) return AVERROR(ENOMEM);
+        if (!(*initialization_pattern)) {
+            ret = AVERROR(ENOMEM);
+            goto end;
+        }
     }
     if (media_pattern) {
         *media_pattern = av_asprintf("%s_$RepresentationID$_$Number$.chk",
                                      filename_str);
-        if (!(*media_pattern)) return AVERROR(ENOMEM);
+        if (!(*media_pattern)) {
+            ret = AVERROR(ENOMEM);
+            goto end;
+        }
     }
-    av_free(filename_str);
-    return 0;
+
+end:
+    av_freep(&filename_str);
+    return ret;
 }
 
 /*
@@ -444,6 +466,7 @@ static int parse_adaptation_sets(AVFormatContext *s)
             continue;
         else if (state == new_set && !strncmp(p, "id=", 3)) {
             void *mem = av_realloc(w->as, sizeof(*w->as) * (w->nb_as + 1));
+            const char *comma;
             if (mem == NULL)
                 return AVERROR(ENOMEM);
             w->as = mem;
@@ -452,6 +475,11 @@ static int parse_adaptation_sets(AVFormatContext *s)
             w->as[w->nb_as - 1].streams = NULL;
             p += 3; // consume "id="
             q = w->as[w->nb_as - 1].id;
+            comma = strchr(p, ',');
+            if (!comma || comma - p >= sizeof(w->as[w->nb_as - 1].id)) {
+                av_log(s, AV_LOG_ERROR, "'id' in 'adaptation_sets' is malformed.\n");
+                return AVERROR(EINVAL);
+            }
             while (*p != ',') *q++ = *p++;
             *q = 0;
             p++;

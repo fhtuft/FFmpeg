@@ -101,13 +101,13 @@ void ff_h264_loop_filter_strength_mmxext(int16_t bS[2][4][4], uint8_t nnz[40],
 
 #define LF_FUNC(DIR, TYPE, DEPTH, OPT)                                        \
 void ff_deblock_ ## DIR ## _ ## TYPE ## _ ## DEPTH ## _ ## OPT(uint8_t *pix,  \
-                                                               int stride,    \
+                                                               ptrdiff_t stride, \
                                                                int alpha,     \
                                                                int beta,      \
                                                                int8_t *tc0);
 #define LF_IFUNC(DIR, TYPE, DEPTH, OPT) \
 void ff_deblock_ ## DIR ## _ ## TYPE ## _ ## DEPTH ## _ ## OPT(uint8_t *pix,  \
-                                                               int stride,    \
+                                                               ptrdiff_t stride, \
                                                                int alpha,     \
                                                                int beta);
 
@@ -228,7 +228,7 @@ H264_BIWEIGHT_10_SSE(4,  10)
 av_cold void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth,
                                  const int chroma_format_idc)
 {
-#if HAVE_YASM
+#if HAVE_X86ASM
     int cpu_flags = av_get_cpu_flags();
 
     if (EXTERNAL_MMXEXT(cpu_flags) && chroma_format_idc <= 1)

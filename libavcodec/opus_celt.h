@@ -28,6 +28,7 @@
 
 #include "opus.h"
 #include "opus_pvq.h"
+#include "opusdsp.h"
 
 #include "mdct15.h"
 #include "libavutil/float_dsp.h"
@@ -40,7 +41,6 @@
 #define CELT_NORM_SCALE              16384
 #define CELT_QTHETA_OFFSET           4
 #define CELT_QTHETA_OFFSET_TWOPHASE  16
-#define CELT_EMPH_COEFF              0.85000610f
 #define CELT_POSTFILTER_MINPERIOD    15
 #define CELT_ENERGY_SILENCE          (-28.0f)
 
@@ -75,8 +75,8 @@ typedef struct CeltBlock {
     DECLARE_ALIGNED(32, float, coeffs)[CELT_MAX_FRAME_SIZE];
 
     /* Used by the encoder */
-    DECLARE_ALIGNED(32, float, overlap)[120];
-    DECLARE_ALIGNED(32, float, samples)[CELT_MAX_FRAME_SIZE];
+    DECLARE_ALIGNED(32, float, overlap)[FFALIGN(CELT_OVERLAP, 16)];
+    DECLARE_ALIGNED(32, float, samples)[FFALIGN(CELT_MAX_FRAME_SIZE, 16)];
 
     /* postfilter parameters */
     int   pf_period_new;
@@ -96,8 +96,10 @@ struct CeltFrame {
     AVFloatDSPContext   *dsp;
     CeltBlock           block[2];
     CeltPVQ             *pvq;
+    OpusDSP             opusdsp;
     int channels;
     int output_channels;
+    int apply_phase_inv;
 
     enum CeltBlockSize size;
     int start_band;
@@ -119,6 +121,12 @@ struct CeltFrame {
     int flushed;
     uint32_t seed;
     enum CeltSpread spread;
+
+    /* Encoder PF coeffs */
+    int pf_octave;
+    int pf_period;
+    int pf_tapset;
+    float pf_gain;
 
     /* Bit allocation */
     int framebits;
@@ -150,7 +158,8 @@ static av_always_inline void celt_renormalize_vector(float *X, int N, float gain
         X[i] *= g;
 }
 
-int ff_celt_init(AVCodecContext *avctx, CeltFrame **f, int output_channels);
+int ff_celt_init(AVCodecContext *avctx, CeltFrame **f, int output_channels,
+                 int apply_phase_inv);
 
 void ff_celt_free(CeltFrame **f);
 

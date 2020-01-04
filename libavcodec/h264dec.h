@@ -365,6 +365,7 @@ typedef struct H264Context {
     int context_initialized;
     int flags;
     int workaround_bugs;
+    int x264_build;
     /* Set when slice threading is used and at least one slice uses deblocking
      * mode 1 (i.e. across slice boundaries). Then we disable the loop filter
      * during normal MB decoding and execute it serially at the end.
@@ -416,6 +417,7 @@ typedef struct H264Context {
     uint8_t (*mvd_table[2])[2];
     uint8_t *direct_table;
 
+    uint8_t scan_padding[16];
     uint8_t zigzag_scan[16];
     uint8_t zigzag_scan8x8[64];
     uint8_t zigzag_scan8x8_cavlc[64];
@@ -830,8 +832,6 @@ int ff_h264_slice_context_init(H264Context *h, H264SliceContext *sl);
 
 void ff_h264_draw_horiz_band(const H264Context *h, H264SliceContext *sl, int y, int height);
 
-int ff_h264_decode_slice_header(H264Context *h, H264SliceContext *sl,
-                                const H2645NAL *nal);
 /**
  * Submit a slice for decoding.
  *

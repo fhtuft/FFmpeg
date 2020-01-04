@@ -311,7 +311,7 @@ static int gxf_write_material_data_section(AVFormatContext *s)
     AVIOContext *pb = s->pb;
     int64_t pos;
     int len;
-    const char *filename = strrchr(s->filename, '/');
+    const char *filename = strrchr(s->url, '/');
 
     pos = avio_tell(pb);
     avio_wb16(pb, 0); /* size */
@@ -320,7 +320,7 @@ static int gxf_write_material_data_section(AVFormatContext *s)
     if (filename)
         filename++;
     else
-        filename = s->filename;
+        filename = s->url;
     len = strlen(filename);
 
     avio_w8(pb, MAT_NAME);
@@ -987,10 +987,11 @@ static int gxf_write_packet(AVFormatContext *s, AVPacket *pkt)
     return 0;
 }
 
-static int gxf_compare_field_nb(AVFormatContext *s, AVPacket *next, AVPacket *cur)
+static int gxf_compare_field_nb(AVFormatContext *s, const AVPacket *next,
+                                                    const AVPacket *cur)
 {
     GXFContext *gxf = s->priv_data;
-    AVPacket *pkt[2] = { cur, next };
+    const AVPacket *pkt[2] = { cur, next };
     int i, field_nb[2];
     GXFStreamContext *sc[2];
 

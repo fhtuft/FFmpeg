@@ -34,7 +34,7 @@ typedef struct CrystalizerContext {
 } CrystalizerContext;
 
 #define OFFSET(x) offsetof(CrystalizerContext, x)
-#define A AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM
+#define A AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_RUNTIME_PARAM
 
 static const AVOption crystalizer_options[] = {
     { "i", "set intensity",    OFFSET(mult), AV_OPT_TYPE_FLOAT, {.dbl=2.0}, 0, 10, A },
@@ -173,7 +173,7 @@ static void filter_dblp(void **d, void **p, const void **s,
 static int config_input(AVFilterLink *inlink)
 {
     AVFilterContext *ctx = inlink->dst;
-    CrystalizerContext *s    = ctx->priv;
+    CrystalizerContext *s = ctx->priv;
 
     switch (inlink->format) {
     case AV_SAMPLE_FMT_FLT:  s->filter = filter_flt;  break;
@@ -203,7 +203,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
     if (av_frame_is_writable(in)) {
         out = in;
     } else {
-        out = ff_get_audio_buffer(inlink, in->nb_samples);
+        out = ff_get_audio_buffer(outlink, in->nb_samples);
         if (!out) {
             av_frame_free(&in);
             return AVERROR(ENOMEM);
@@ -212,7 +212,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
     }
 
     s->filter((void **)out->extended_data, (void **)s->prev->extended_data, (const void **)in->extended_data,
-              in->nb_samples, in->channels, s->mult, s->clip);
+              in->nb_samples, in->channels, ctx->is_disabled ? 0.f : s->mult, s->clip);
 
     if (out != in)
         av_frame_free(&in);
@@ -254,4 +254,6 @@ AVFilter ff_af_crystalizer = {
     .uninit         = uninit,
     .inputs         = inputs,
     .outputs        = outputs,
+    .flags          = AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL,
+    .process_command = ff_filter_process_command,
 };

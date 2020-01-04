@@ -397,6 +397,11 @@ static int oma_read_header(AVFormatContext *s)
     OMAContext *oc = s->priv_data;
 
     ff_id3v2_read(s, ID3v2_EA3_MAGIC, &extra_meta, 0);
+    if ((ret = ff_id3v2_parse_chapters(s, &extra_meta)) < 0) {
+        ff_id3v2_free_extra_meta(&extra_meta);
+        return ret;
+    }
+
     ret = avio_read(s->pb, buf, EA3_HEADER_SIZE);
     if (ret < EA3_HEADER_SIZE)
         return -1;
@@ -454,8 +459,8 @@ static int oma_read_header(AVFormatContext *s)
 
         /* fake the ATRAC3 extradata
          * (wav format, makes stream copy to wav work) */
-        if (ff_alloc_extradata(st->codecpar, 14))
-            return AVERROR(ENOMEM);
+        if ((ret = ff_alloc_extradata(st->codecpar, 14)) < 0)
+            return ret;
 
         edata = st->codecpar->extradata;
         AV_WL16(&edata[0],  1);             // always 1
@@ -534,7 +539,7 @@ static int oma_read_packet(AVFormatContext *s, AVPacket *pkt)
     return oc->read_packet(s, pkt);
 }
 
-static int oma_read_probe(AVProbeData *p)
+static int oma_read_probe(const AVProbeData *p)
 {
     const uint8_t *buf = p->buf;
     unsigned tag_len = 0;
